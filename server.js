@@ -608,16 +608,13 @@ app.post('/api/paytm/qr-initiate', async (req, res) => {
       return res.status(500).json({ status: false, message: 'Failed to load Paytm login. Please try again.' });
     }
 
-    // 1. Robust wait and click for "click here" (Login through QR Code)
+    // 1. Click "click here" to switch to QR code
     let clickedQr = false;
-    for (let attempts = 0; attempts < 30; attempts++) {
+    for (let attempts = 0; attempts < 20; attempts++) {
       try {
         clickedQr = await oauthFrame.evaluate(() => {
           const els = Array.from(document.querySelectorAll('*'));
-          const clickEl = els.find(e => {
-            const txt = (e.innerText || '').trim().toLowerCase();
-            return txt === 'click here' || txt.includes('login through qr');
-          });
+          const clickEl = els.find(e => e.innerText && e.innerText.trim() === 'click here');
           if (clickEl) {
             clickEl.click();
             return true;
@@ -626,12 +623,9 @@ app.post('/api/paytm/qr-initiate', async (req, res) => {
         });
       } catch (_) {}
       if (clickedQr) break;
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 600));
     }
-
-    if (!clickedQr) {
-      console.warn('[PaytmAuth] "click here" not found in iframe, checking if QR already shown');
-    }
+    console.log('[PaytmAuth] Clicked QR switch button:', clickedQr);
 
     // 2. Wait for Paytm to finish generating the real dynamic QR code (canvas or image)
     let qrReady = false;
@@ -639,11 +633,10 @@ app.post('/api/paytm/qr-initiate', async (req, res) => {
       await new Promise(r => setTimeout(r, 600));
       try {
         const readyCheck = await oauthFrame.evaluate(() => {
-          const gif = document.querySelector('img[src*=".gif"]');
           const canvas = document.querySelector('canvas');
-          if (!gif && canvas) {
+          if (canvas) {
             try {
-              if (canvas.toDataURL().length > 3000) return true;
+              if (canvas.toDataURL().length > 2000) return true;
             } catch (_) {}
           }
           const qrImg = document.querySelector('.qrContainer img, .qrCont img, img[alt*="QR"], img[src*="data:image"]');
