@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: paytm-auth
+    env: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 4000
